@@ -33,37 +33,38 @@ class BatchDatset:
         self._read_images()
 
     def _read_images(self):
-        # 1. 
+        # 1.
         self.__channels = True
         #self.images = np.array([self._transform(filename['image']) for filename in self.files])
-        #to display the progress info to users
-        self.images = np.array([self._transform(filename['image']) for filename in tqdm(self.files)])
-        
-        
-        
-        self.__channels = False
-        #self.annotations = np.array(
-        #    [np.expand_dims(self._transform(filename['annotation']), axis=3) for filename in self.files])
-        self.annotations = np.array(
-            [np.expand_dims(self._transform(filename['annotation']), axis=3) for filename in tqdm(self.files)])
-        print ("image.shape:", self.images.shape)
-        print ("annotations.shape:", self.annotations.shape)
+        # to display the progress info to users
+        self.images = np.array([self._transform(filename['image'])
+                                for filename in tqdm(self.files)])
 
-        
+        self.__channels = False
+        # self.annotations = np.array(
+        #    [np.expand_dims(self._transform(filename['annotation']), axis=3) for filename in self.files])
+        self.annotations = np.array([np.expand_dims(self._transform(
+            filename['annotation']), axis=3) for filename in tqdm(self.files)])
+        print("image.shape:", self.images.shape)
+        print("annotations.shape:", self.annotations.shape)
+
     """
-        resize images to fixed resolution for the DNN 
+        resize images to fixed resolution for the DNN
     """
+
     def _transform(self, filename):
         # 1. read image
         image = misc.imread(filename)
         # 2. make sure it is RGB image
-        if self.__channels and len(image.shape) < 3:  # make sure images are of shape(h,w,3)
+        if self.__channels and len(
+                image.shape) < 3:  # make sure images are of shape(h,w,3)
             image = np.array([image for i in range(3)])
-        # 3. resize it 
-        if self.image_options.get("resize", False) and self.image_options["resize"]:
+        # 3. resize it
+        if self.image_options.get("resize",
+                                  False) and self.image_options["resize"]:
             resize_size = int(self.image_options["resize_size"])
-            resize_image = misc.imresize(image,
-                                         [resize_size, resize_size], interp='nearest')
+            resize_image = misc.imresize(
+                image, [resize_size, resize_size], interp='nearest')
         else:
             resize_image = image
 
@@ -81,7 +82,8 @@ class BatchDatset:
         if self.batch_offset > self.images.shape[0]:
             # Finished epoch
             self.epochs_completed += 1
-            print("****************** Epochs completed: " + str(self.epochs_completed) + "******************")
+            print("****************** Epochs completed: " +
+                  str(self.epochs_completed) + "******************")
             # Shuffle the data
             perm = np.arange(self.images.shape[0])
             np.random.shuffle(perm)
@@ -95,10 +97,9 @@ class BatchDatset:
         return self.images[start:end], self.annotations[start:end]
 
     def get_random_batch(self, batch_size):
-        indexes = np.random.randint(0, self.images.shape[0], size=[batch_size]).tolist()
+        indexes = np.random.randint(
+            0, self.images.shape[0], size=[batch_size]).tolist()
         return self.images[indexes], self.annotations[indexes]
 
-           
     def get_num_of_records(self):
         return self.images.shape[0]
-        
