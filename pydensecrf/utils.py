@@ -191,4 +191,3 @@ def _create_pairwise_bilateral_2d(sx, sy, sr, sg, sb, img):
             feats[3, i, j] = img[i, j, 1] / sg
             feats[4, i, j] = img[i, j, 2] / sb
     return feats.reshape([feat_size, -1])
-

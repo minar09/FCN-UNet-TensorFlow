@@ -15,6 +15,7 @@ import TensorflowUtils as utils
 from PIL import Image
 import numpy as np
 import tensorflow as tf
+import time
 
 # Hide the warning messages about CPU/GPU
 import os
@@ -104,7 +105,7 @@ def _calcFrequencyWeightedIOU(gtimage, predimage, num_classes):
     for i in range(num_classes):
         FrqWIoU.append([0] * num_classes)
 
-        gt_pixels = []
+    gt_pixels = []
     height, width = gtimage.shape
 
     for label in range(num_classes):  # 0--> 17
@@ -135,7 +136,7 @@ def _calcFrequencyWeightedIOU(gtimage, predimage, num_classes):
                             pred = pred + 1
 
                 gt_pixels.append(gt)
-                
+
         # union = gt + pred - intersection
         # intersection = gt * pred
         # FrqWIoU[label] = (float)(intersection * gt) / union
@@ -147,12 +148,9 @@ def _calcFrequencyWeightedIOU(gtimage, predimage, num_classes):
 
     #pixel_sum = np.sum(gt_pixels)
     pixel_sum = predimage.shape[0] * predimage[1]
-    
-    if(pixel_sum == 0):
-            meanFrqWIoU = 0.0
-    else:
-        meanFrqWIoU = (float)(np.sum(FrqWIoU)) / pixel_sum
-    
+
+    meanFrqWIoU = (float)(np.sum(FrqWIoU)) / pixel_sum
+
     return FrqWIoU, meanFrqWIoU
 
 
@@ -289,3 +287,299 @@ def vgg_net(weights, image):
     net['global_step'] = global_iter_counter
 
     return net
+
+
+def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability):
+    if not os.path.exists(TEST_DIR):
+            os.makedirs(TEST_DIR)
+            
+    valid_images, valid_annotations = validation_dataset_reader.get_random_batch(
+        FLAGS.batch_size)
+    pred = sess.run(
+        pred_annotation,
+        feed_dict={
+            image: valid_images,
+            annotation: valid_annotations,
+            keep_probability: 1.0})
+    valid_annotations = np.squeeze(valid_annotations, axis=3)
+    pred = np.squeeze(pred, axis=3)
+
+    for itr in range(FLAGS.batch_size):
+            utils.save_image(valid_images[itr].astype(
+                np.uint8), FLAGS.logs_dir + "Image/", name="inp_" + str(5 + itr))
+            utils.save_image(valid_annotations[itr].astype(
+                np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="gt_" + str(5 + itr))
+            utils.save_image(pred[itr].astype(
+                np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="pred_" + str(5 + itr))
+            print("Saved image: %d" % itr)
+
+
+def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, logits):
+    print(">>>>>>>>>>>>>>>>Test mode")
+    start = time.time()
+
+    if not os.path.exists(TEST_DIR):
+        os.makedirs(TEST_DIR)
+
+    crossMats = list()
+    mIOU_all = list()
+    mFWIOU_all = list()
+    validation_dataset_reader.reset_batch_offset(0)
+    pred_e = list()
+
+    for itr1 in range(validation_dataset_reader.get_num_of_records() // FLAGS.batch_size):
+
+        valid_images, valid_annotations = validation_dataset_reader.next_batch(
+            FLAGS.batch_size)
+        pred, logits1 = sess.run([pred_annotation, logits],
+                                 feed_dict={image: valid_images, annotation: valid_annotations,
+                                            keep_probability: 1.0})
+        valid_annotations = np.squeeze(valid_annotations, axis=3)
+        #logits1 = np.squeeze(logits1)
+        pred = np.squeeze(pred)
+        print("logits shape:", logits1.shape)
+        np.set_printoptions(threshold=np.inf)
+        # print("logits:", logits)
+
+        for itr2 in range(FLAGS.batch_size):
+
+            #print("Output file: ", FLAGS.logs_dir + "crf_" + str(itr1 * 2 + itr2))
+            #crfoutput = fd.crf(valid_images[itr2].astype(np.uint8), logits1[itr2])
+
+            fig = plt.figure()
+            pos = 240 + 1
+            plt.subplot(pos)
+            plt.imshow(valid_images[itr2].astype(np.uint8))
+            plt.axis('off')
+            plt.title('Original')
+
+            pos = 240 + 2
+            plt.subplot(pos)
+            plt.imshow(
+                valid_annotations[itr2].astype(
+                    np.uint8),
+                cmap=plt.get_cmap('nipy_spectral'))
+            plt.axis('off')
+            plt.title('GT')
+
+            pos = 240 + 3
+            plt.subplot(pos)
+            plt.imshow(
+                pred[itr2].astype(
+                    np.uint8),
+                cmap=plt.get_cmap('nipy_spectral'))
+            plt.axis('off')
+            plt.title('Prediction')
+
+            pos = 240 + 4
+            plt.subplot(pos)
+            #plt.imshow(crfoutput, cmap=plt.get_cmap('nipy_spectral'))
+            plt.axis('off')
+            plt.title('CRFPostProcessing')
+
+            pos = 240 + 6
+            plt.subplot(pos)
+            ret, errorImage = cv2.threshold(
+                cv2.absdiff(
+                    pred[itr2].astype(
+                        np.uint8), valid_annotations[itr2].astype(
+                        np.uint8)), 0.5, 255, cv2.THRESH_BINARY)
+            plt.imshow(errorImage, cmap=plt.get_cmap('gray'))
+            plt.axis('off')
+            plt.title('Pred Error:' + str(np.count_nonzero(errorImage)))
+            pred_e.append(np.count_nonzero(errorImage))
+
+            crossMat = fd._calcCrossMat(
+                valid_annotations[itr2].astype(
+                    np.uint8), pred[itr2].astype(
+                    np.uint8), NUM_OF_CLASSESS)
+            crossMats.append(crossMat)
+            # print(crossMat)
+            IoUs = fd._calcIOU(
+                valid_annotations[itr2].astype(
+                    np.uint8), pred[itr2].astype(
+                    np.uint8), NUM_OF_CLASSESS)
+            mIOU_all.append(IoUs)
+
+            # Frequency weighted mIoUs
+            FWIoUs, mFWIoU = fd._calcFrequencyWeightedIOU(
+                valid_annotations[itr2].astype(
+                    np.uint8), pred[itr2].astype(
+                    np.uint8), NUM_OF_CLASSESS)
+            mFWIOU_all.append(mFWIoU)
+
+            #crfoutput = cv2.normalize(crfoutput, None, 0, 255, cv2.NORM_MINMAX)
+            valid_annotations[itr2] = cv2.normalize(
+                valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
+
+            pos = 240 + 8
+            plt.subplot(pos)
+            #ret, errorImage = cv2.threshold(cv2.absdiff(crfoutput.astype(np.uint8), valid_annotations[itr2].astype(np.uint8)), 10, 255, cv2.THRESH_BINARY)
+            plt.imshow(errorImage, cmap=plt.get_cmap('gray'))
+            plt.axis('off')
+            plt.title('CRF Error:' + str(np.count_nonzero(errorImage)))
+
+            # np.set_printoptions(threshold=np.inf)
+
+            # plt.show()
+
+            np.savetxt(FLAGS.logs_dir +
+                       "Image/Crossmatrix" +
+                       str(itr1 *
+                           FLAGS.batch_size +
+                           itr2) +
+                       ".csv", crossMat, fmt='%4i', delimiter=',')
+            np.savetxt(FLAGS.logs_dir +
+                       "Image/IoUs" +
+                       str(itr1 *
+                           FLAGS.batch_size +
+                           itr2) +
+                       ".csv", IoUs, fmt='%4f', delimiter=',')
+            np.savetxt(FLAGS.logs_dir +
+                       "Image/FWIoUs" +
+                       str(itr1 *
+                           FLAGS.batch_size +
+                           itr2) +
+                       ".csv", FWIoUs, fmt='%4f', delimiter=',')
+            plt.savefig(FLAGS.logs_dir + "Image/resultSum_" +
+                        str(itr1 * FLAGS.batch_size + itr2))
+            # ---------------------------------------------
+            utils.save_image(valid_images[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
+                             name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
+            utils.save_image(valid_annotations[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
+                             name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
+            utils.save_image(pred[itr2].astype(np.uint8),
+                             FLAGS.logs_dir + "Image/",
+                             name="pred_" + str(itr1 * 2 + itr2))
+            #utils.save_image(crfoutput, FLAGS.logs_dir + "Image/", name="crf_" + str(itr1 * 2 + itr2))
+
+            plt.close('all')
+            print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
+            # save list of error to file
+
+    with open(FLAGS.logs_dir + 'pred_e.txt', 'w') as file:
+        for error in pred_e:
+            file.write("%i\n" % error)
+
+    np.savetxt(
+        FLAGS.logs_dir +
+        "Crossmatrix.csv",
+        np.sum(
+            crossMats,
+            axis=0),
+        fmt='%4i',
+        delimiter=',')
+    np.savetxt(
+        FLAGS.logs_dir +
+        "mIoUs" +
+        ".csv",
+        np.mean(
+            mIOU_all,
+            axis=0),
+        fmt='%4f',
+        delimiter=',')
+    np.savetxt(
+        FLAGS.logs_dir +
+        "mFWIoUs" +
+        ".csv",
+        mFWIOU_all,
+        fmt='%4f',
+        delimiter=',')
+        
+    end = time.time()
+    print("Learning time:", end - start, "seconds")
+
+        
+def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, DISPLAY_STEP=300):
+    
+    start = time.time()
+
+    valid = list()
+    step = list()
+    lo = list()
+
+    global_step = sess.run(net['global_step'])
+    global_step = 0
+    MAX_ITERATION = round(
+        (len(train_records) //
+         FLAGS.batch_size) *
+        FLAGS.training_epochs)
+    print(
+        "No. of maximum steps:",
+        MAX_ITERATION,
+        " Training epochs:",
+        FLAGS.training_epochs)
+
+    for itr in xrange(global_step, MAX_ITERATION):
+        # 6.1 load train and GT images
+        train_images, train_annotations = train_dataset_reader.next_batch(
+            FLAGS.batch_size)
+        #print("train_image:", train_images.shape)
+        #print("annotation :", train_annotations.shape)
+
+        feed_dict = {
+            image: train_images,
+            annotation: train_annotations,
+            keep_probability: 0.85}
+
+        # 6.2 training
+        sess.run(train_op, feed_dict=feed_dict)
+
+        if itr % 10 == 0:
+            train_loss, summary_str = sess.run(
+                [loss, summary_op], feed_dict=feed_dict)
+            print("Step: %d, Train_loss:%g" % (itr, train_loss))
+            summary_writer.add_summary(summary_str, itr)
+            if itr % DISPLAY_STEP == 0 and itr != 0:
+                lo.append(train_loss)
+
+        if itr % DISPLAY_STEP == 0 and itr != 0:
+            valid_images, valid_annotations = validation_dataset_reader.next_batch(
+                FLAGS.batch_size)
+            valid_loss = sess.run(
+                loss,
+                feed_dict={
+                    image: valid_images,
+                    annotation: valid_annotations,
+                    keep_probability: 1.0})
+            print(
+                "%s ---> Validation_loss: %g" %
+                (datetime.datetime.now(), valid_loss))
+            global_step = sess.run(net['global_step'])
+            saver.save(
+                sess,
+                FLAGS.logs_dir +
+                "model.ckpt",
+                global_step=global_step)
+
+            valid.append(valid_loss)
+            step.append(itr)
+            # print("valid", valid, "step", step)
+
+            plt.plot(step, valid)
+            plt.ylabel("Loss")
+            plt.xlabel("Step")
+            plt.title('Validation Loss')
+            plt.savefig(FLAGS.logs_dir + "validation_loss.jpg")
+
+            plt.clf()
+            plt.plot(step, lo)
+            plt.title('Training Loss')
+            plt.ylabel("Loss")
+            plt.xlabel("Step")
+            plt.savefig(FLAGS.logs_dir + "training_loss.jpg")
+
+            plt.clf()
+
+            plt.plot(step, lo)
+            plt.plot(step, valid)
+            plt.ylabel("Loss")
+            plt.xlabel("Step")
+            plt.title('Result')
+            plt.legend(['Training Loss', 'Validation Loss'],
+                       loc='upper right')
+            plt.savefig(FLAGS.logs_dir + "merged_loss.jpg")
+
+    end = time.time()
+    print("Learning time:", end - start, "seconds")
+
