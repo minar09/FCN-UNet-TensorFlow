@@ -135,32 +135,43 @@ def conv2d_strided(x, W, b):
     return tf.nn.bias_add(conv, b)
 
 
+def _upsample_filters(filters, rate):
+    """Upsamples the filters by a factor of rate along the spatial dimensions.
+    Args:
+      filters: [h, w, in_depth, out_depth]. Original filters.
+      rate: An int, specifying the upsampling rate.
+    Returns:
+      filters_up: [h_up, w_up, in_depth, out_depth]. Upsampled filters with
+        h_up = h + (h - 1) * (rate - 1)
+        w_up = w + (w - 1) * (rate - 1)
+        containing (rate - 1) zeros between consecutive filter values along
+        the filters' spatial dimensions.
+    """
+    if rate == 1:
+        return filters
+    # [h, w, in_depth, out_depth] -> [in_depth, out_depth, h, w]
+    filters_up = np.transpose(filters, [2, 3, 0, 1])
+    ker = np.zeros([rate, rate], dtype=np.float32)
+    ker[0, 0] = 1
+    filters_up = np.kron(filters_up, ker)[:, :, :-(rate - 1), :-(rate - 1)]
+    # [in_depth, out_depth, h_up, w_up] -> [h_up, w_up, in_depth, out_depth]
+    filters_up = np.transpose(filters_up, [2, 3, 0, 1])
+    return filters_up
+
+
 def conv2d_transpose_strided(x, W, b, output_shape=None, stride=2):
-    # print x.get_shape()
-    # print W.get_shape()
+        # print x.get_shape()
+        # print W.get_shape()
     if output_shape is None:
         output_shape = x.get_shape().as_list()
         output_shape[1] *= 2
         output_shape[2] *= 2
         output_shape[3] = W.get_shape().as_list()[2]
     # print output_shape
-    conv = tf.nn.conv2d_transpose(
-        x, W, output_shape, strides=[
-            1, stride, stride, 1], padding="SAME")
+    #conv = tf.nn.conv2d_transpose(x, W, output_shape, strides=[1, stride, stride, 1], padding="SAME")
+    conv = tf.nn.atrous_conv2d_transpose(x, _upsample_filters(
+        W, stride), output_shape, rate=stride, padding="SAME")
     return tf.nn.bias_add(conv, b)
-    
-    
-"""   
-def conv2d_transpose_strided(x, W, b, output_shape=None, stride=2):
-    if output_shape is None:
-        output_shape = x.get_shape().as_list()
-        output_shape[1] *= 2
-        output_shape[2] *= 2
-        output_shape[3] = W.get_shape().as_list()[2]
-    # print output_shape
-    conv = tf.nn.atrous_conv2d_transpose(
-        x, W, output_shape, stride, padding="SAME")
-    return tf.nn.bias_add(conv, b)"""
 
 
 def leaky_relu(x, alpha=0.0, name=""):

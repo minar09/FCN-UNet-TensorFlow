@@ -291,8 +291,8 @@ def vgg_net(weights, image):
 
 def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability):
     if not os.path.exists(TEST_DIR):
-            os.makedirs(TEST_DIR)
-            
+        os.makedirs(TEST_DIR)
+
     valid_images, valid_annotations = validation_dataset_reader.get_random_batch(
         FLAGS.batch_size)
     pred = sess.run(
@@ -305,13 +305,13 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
     pred = np.squeeze(pred, axis=3)
 
     for itr in range(FLAGS.batch_size):
-            utils.save_image(valid_images[itr].astype(
-                np.uint8), FLAGS.logs_dir + "Image/", name="inp_" + str(5 + itr))
-            utils.save_image(valid_annotations[itr].astype(
-                np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="gt_" + str(5 + itr))
-            utils.save_image(pred[itr].astype(
-                np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="pred_" + str(5 + itr))
-            print("Saved image: %d" % itr)
+        utils.save_image(valid_images[itr].astype(
+            np.uint8), FLAGS.logs_dir + "Image/", name="inp_" + str(5 + itr))
+        utils.save_image(valid_annotations[itr].astype(
+            np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="gt_" + str(5 + itr))
+        utils.save_image(pred[itr].astype(
+            np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="pred_" + str(5 + itr))
+        print("Saved image: %d" % itr)
 
 
 def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, logits):
@@ -485,13 +485,13 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
         mFWIOU_all,
         fmt='%4f',
         delimiter=',')
-        
+
     end = time.time()
     print("Learning time:", end - start, "seconds")
 
-        
+
 def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, DISPLAY_STEP=300):
-    
+
     start = time.time()
 
     valid = list()
@@ -582,4 +582,3 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
 
     end = time.time()
     print("Learning time:", end - start, "seconds")
-

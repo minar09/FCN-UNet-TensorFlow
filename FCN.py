@@ -243,20 +243,24 @@ def main(argv=None):
 
     # 6. train-mode
     if FLAGS.mode == "train":
-        
-        fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, DISPLAY_STEP)
+
+        fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation,
+                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, DISPLAY_STEP)
 
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":
-    
-        fd.mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability)
+
+        fd.mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader,
+                          pred_annotation, image, annotation, keep_probability)
 
     # test-full-validation-dataset mode
     elif FLAGS.mode == "test":  # heejune added
-    
-        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, logits)
+
+        fd.mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader,
+                     pred_annotation, image, annotation, keep_probability, logits)
 
     sess.close()
+
 
 if __name__ == "__main__":
     tf.app.run()

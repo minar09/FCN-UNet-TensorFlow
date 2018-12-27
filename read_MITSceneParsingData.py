@@ -48,13 +48,7 @@ def read_dataset(data_dir):
         # sample record: {'image': f, 'annotation': annotation_file,
         # 'filename': filename}
         training_records = []
-        # testdir = "D:/Python/Anaconda/envs/tf/ws/FCN/Data_zoo/MIT_SceneParsing/ADEChallengeData2016/images/training/"  # os.path.join(data_dir, '/ADEChallengeData2016/images/training/')
-        # cloth parsing
-        # testdir = "D:/Python/Anaconda/envs/tf/ws/FCN/Data_zoo/ClothParsing/images/training/"  # os.path.join(data_dir, '/ADEChallengeData2016/images/training/')
-        # human parsing
-        # testdir = "/home/emcom/FCN-Tuan/Data_zoo/Dataset10k/images/training/"
-        # # os.path.join(data_dir, '/ADEChallengeData2016/images/training/')
-        # os.path.join(data_dir, '/ADEChallengeData2016/images/training/')
+
         testdir = "E:/Dataset/Dataset10k/images/training/"
 
         print("## Training dir:", testdir)
@@ -65,22 +59,12 @@ def read_dataset(data_dir):
             record['annotation'] = filename.replace(
                 "images", "annotations").replace(
                 "jpg", "png")
-            #print("image:", filename, "annotation:", record['annotation'])
-            # if input(">> continue?") == 'n':
-            #     exit()
             training_records.append(record)
 
         validation_records = []
-        # validationdir = "D:/Python/Anaconda/envs/tf/ws/FCN/Data_zoo/MIT_SceneParsing/ADEChallengeData2016/images/validation/"  #os.path.join(data_dir, '/ADEChallengeData2016/images/validation/')
-        # cloth parsing
-        # validationdir = "D:/Python/Anaconda/envs/tf/ws/FCN/Data_zoo/ClothParsing/images/validation/"  #os.path.join(data_dir, '/ADEChallengeData2016/images/validation/')
-        # human parsing
-        # validationdir =
-        # "/home/emcom/FCN-Tuan/Data_zoo/Dataset10k/images/validation/"
-        # #os.path.join(data_dir, '/ADEChallengeData2016/images/validation/')
-        # os.path.join(data_dir, '/ADEChallengeData2016/images/validation/')
+
         validationdir = "E:/Dataset/Dataset10k/images/validation/"
-        #validationdir = "/home/emcom/FCN-Tuan/parseDemo20180417/"
+
         print("## Validation dir:", validationdir)
         for filename in glob.glob(
                 validationdir + '*.jpg'):  # assuming jpg files
