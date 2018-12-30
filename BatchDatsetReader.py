@@ -25,7 +25,7 @@ class BatchDatset:
         resize_size = #size of output image - does bilinear resize
         color=True/False
         """
-        print("Initializing Batch Dataset Reader, It may takes minutes...")
+        print("Initializing Batch Dataset Reader, It may take minutes...")
         print(image_options)
         self.files = records_list
         #print("files:", self.files)

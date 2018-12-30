@@ -1,5 +1,4 @@
 from __future__ import print_function
-import function_definitions as fd
 import cv2
 import matplotlib.pyplot as plt
 from skimage.color import rgb2gray
@@ -16,142 +15,11 @@ from PIL import Image
 import numpy as np
 import tensorflow as tf
 import time
+import EvalMetrics as EM
 
 # Hide the warning messages about CPU/GPU
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-
-"""
-import for crf
-"""
-
-
-"""
-    calculate IoU
-"""
-
-
-def _calcIOU(gtimage, predimage, num_classes):
-    IoUs = []
-    for i in range(num_classes):
-        IoUs.append([0] * num_classes)
-
-    height, width = gtimage.shape
-
-    for label in range(num_classes):  # 0--> 17
-        intersection = 0
-        union = 0
-
-        for y in range(height):  # 0->223
-            # print(crossMat)
-
-            for x in range(width):  # =-->223
-                gtlabel = gtimage[y, x]
-                predlabel = predimage[y, x]
-
-                if predlabel >= num_classes or gtlabel >= num_classes:
-                    print('gt:%d, pr:%d' % (gtlabel, predlabel))
-                else:
-                    if(gtlabel == label and predlabel == label):
-                        intersection = intersection + 1
-                    if(gtlabel == label or predlabel == label):
-                        union = union + 1
-
-        if(union == 0):
-            IoUs[label] = 0.0
-        else:
-            # print("label:", label , "intersection:", intersection, " -
-            # union:", union)
-            IoUs[label] = (float)(intersection) / union
-
-    return IoUs
-
-
-"""
-    calculate confusion matrix
-"""
-
-
-def _calcCrossMat(gtimage, predimage, num_classes):
-    crossMat = []
-
-    for i in range(num_classes):
-        crossMat.append([0] * num_classes)
-    # print(crossMat)
-    height, width = gtimage.shape
-
-    for y in range(height):
-        # print(crossMat)
-
-        for x in range(width):
-            gtlabel = gtimage[y, x]
-            predlabel = predimage[y, x]
-            if predlabel >= num_classes or gtlabel >= num_classes:
-                print('gt:%d, pr:%d' % (gtlabel, predlabel))
-            else:
-                crossMat[gtlabel][predlabel] = crossMat[gtlabel][predlabel] + 1
-
-    return crossMat
-
-
-"""
-    calculate frequency weighted IoU
-"""
-
-
-def _calcFrequencyWeightedIOU(gtimage, predimage, num_classes):
-    FrqWIoU = []
-    for i in range(num_classes):
-        FrqWIoU.append([0] * num_classes)
-
-    gt_pixels = []
-    height, width = gtimage.shape
-
-    for label in range(num_classes):  # 0--> 17
-        intersection = 0
-        union = 0
-        pred = 0
-        gt = 0
-
-        for y in range(height):  # 0->223
-            # print(crossMat)
-
-            for x in range(width):  # =-->223
-                gtlabel = gtimage[y, x]
-                predlabel = predimage[y, x]
-
-                if predlabel >= num_classes or gtlabel >= num_classes:
-                    print('gt:%d, pr:%d' % (gtlabel, predlabel))
-                else:
-                    if(gtlabel == label and predlabel == label):
-                        intersection = intersection + 1
-                        gt = gt + 1
-                        pred = pred + 1
-                    elif(gtlabel == label or predlabel == label):
-                        union = union + 1
-                        if(gtlabel == label):
-                            gt = gt + 1
-                        elif(predlabel == label):
-                            pred = pred + 1
-
-                gt_pixels.append(gt)
-
-        # union = gt + pred - intersection
-        # intersection = gt * pred
-        # FrqWIoU[label] = (float)(intersection * gt) / union
-
-        if(union == 0):
-            FrqWIoU[label] = 0.0
-        else:
-            FrqWIoU[label] = (float)(intersection * gt) / union
-
-    #pixel_sum = np.sum(gt_pixels)
-    pixel_sum = predimage.shape[0] * predimage[1]
-
-    meanFrqWIoU = (float)(np.sum(FrqWIoU)) / pixel_sum
-
-    return FrqWIoU, meanFrqWIoU
 
 
 """
@@ -245,6 +113,13 @@ def crf(original_image, annotated_image, use_2d=True):
     return MAP.reshape(original_image.shape), output
 
 
+#####################################################Optimization functions###################################################
+
+"""
+   Optimization functions
+"""
+
+
 def vgg_net(weights, image):
     layers = (
         'conv1_1', 'relu1_1', 'conv1_2', 'relu1_2', 'pool1',
@@ -289,7 +164,7 @@ def vgg_net(weights, image):
     return net
 
 
-def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability):
+def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, NUM_OF_CLASSESS):
     if not os.path.exists(TEST_DIR):
         os.makedirs(TEST_DIR)
 
@@ -304,17 +179,41 @@ def mode_visualize(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annota
     valid_annotations = np.squeeze(valid_annotations, axis=3)
     pred = np.squeeze(pred, axis=3)
 
+    pixel = EM.AverageMeter()
+    mean = EM.AverageMeter()
+    miou = EM.AverageMeter()
+    fwiou = EM.AverageMeter()
+
     for itr in range(FLAGS.batch_size):
         utils.save_image(valid_images[itr].astype(
-            np.uint8), FLAGS.logs_dir + "Image/", name="inp_" + str(5 + itr))
+            np.uint8), TEST_DIR, name="inp_" + str(5 + itr))
         utils.save_image(valid_annotations[itr].astype(
-            np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="gt_" + str(5 + itr))
+            np.uint8) * 255 / 18, TEST_DIR, name="gt_" + str(5 + itr))
         utils.save_image(pred[itr].astype(
-            np.uint8) * 255 / 18, FLAGS.logs_dir + "Image/", name="pred_" + str(5 + itr))
+            np.uint8) * 255 / 18, TEST_DIR, name="pred_" + str(5 + itr))
         print("Saved image: %d" % itr)
 
+        pa, ma, miu, fwiu = EM._calc_eval_metrics(
+            valid_annotations[itr].astype(
+                np.uint8), pred[itr].astype(
+                np.uint8), NUM_OF_CLASSESS)
 
-def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation, image, annotation, keep_probability, logits):
+        pixel.update(pa)
+        mean.update(ma)
+        miou.update(miu)
+        fwiou.update(fwiu)
+
+        print('Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
+              'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
+              'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
+              'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format(
+                  pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+
+    print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
+          .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+
+
+def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, pred_annotation, image, annotation, keep_probability, logits, NUM_OF_CLASSESS):
     print(">>>>>>>>>>>>>>>>Test mode")
     start = time.time()
 
@@ -325,7 +224,13 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
     mIOU_all = list()
     mFWIOU_all = list()
     validation_dataset_reader.reset_batch_offset(0)
-    pred_e = list()
+    PA_all = list()
+    MPA_all = list()
+
+    pixel = EM.AverageMeter()
+    mean = EM.AverageMeter()
+    miou = EM.AverageMeter()
+    fwiou = EM.AverageMeter()
 
     for itr1 in range(validation_dataset_reader.get_num_of_records() // FLAGS.batch_size):
 
@@ -335,16 +240,11 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
                                  feed_dict={image: valid_images, annotation: valid_annotations,
                                             keep_probability: 1.0})
         valid_annotations = np.squeeze(valid_annotations, axis=3)
-        #logits1 = np.squeeze(logits1)
         pred = np.squeeze(pred)
         print("logits shape:", logits1.shape)
         np.set_printoptions(threshold=np.inf)
-        # print("logits:", logits)
 
         for itr2 in range(FLAGS.batch_size):
-
-            #print("Output file: ", FLAGS.logs_dir + "crf_" + str(itr1 * 2 + itr2))
-            #crfoutput = fd.crf(valid_images[itr2].astype(np.uint8), logits1[itr2])
 
             fig = plt.figure()
             pos = 240 + 1
@@ -371,57 +271,38 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
             plt.axis('off')
             plt.title('Prediction')
 
-            pos = 240 + 4
-            plt.subplot(pos)
-            #plt.imshow(crfoutput, cmap=plt.get_cmap('nipy_spectral'))
-            plt.axis('off')
-            plt.title('CRFPostProcessing')
-
-            pos = 240 + 6
-            plt.subplot(pos)
-            ret, errorImage = cv2.threshold(
-                cv2.absdiff(
-                    pred[itr2].astype(
-                        np.uint8), valid_annotations[itr2].astype(
-                        np.uint8)), 0.5, 255, cv2.THRESH_BINARY)
-            plt.imshow(errorImage, cmap=plt.get_cmap('gray'))
-            plt.axis('off')
-            plt.title('Pred Error:' + str(np.count_nonzero(errorImage)))
-            pred_e.append(np.count_nonzero(errorImage))
-
-            crossMat = fd._calcCrossMat(
+            # Confusion matrix for this image
+            crossMat = EM._calcCrossMat(
                 valid_annotations[itr2].astype(
                     np.uint8), pred[itr2].astype(
                     np.uint8), NUM_OF_CLASSESS)
             crossMats.append(crossMat)
-            # print(crossMat)
-            IoUs = fd._calcIOU(
+
+            # Eval metrics for this image
+            pa, ma, miu, fwiu = EM._calc_eval_metrics(
                 valid_annotations[itr2].astype(
                     np.uint8), pred[itr2].astype(
                     np.uint8), NUM_OF_CLASSESS)
-            mIOU_all.append(IoUs)
 
-            # Frequency weighted mIoUs
-            FWIoUs, mFWIoU = fd._calcFrequencyWeightedIOU(
-                valid_annotations[itr2].astype(
-                    np.uint8), pred[itr2].astype(
-                    np.uint8), NUM_OF_CLASSESS)
-            mFWIOU_all.append(mFWIoU)
+            pixel.update(pa)
+            mean.update(ma)
+            miou.update(miu)
+            fwiou.update(fwiu)
 
-            #crfoutput = cv2.normalize(crfoutput, None, 0, 255, cv2.NORM_MINMAX)
+            PA_all.append(pa)
+            MPA_all.append(ma)
+            mIOU_all.append(miu)
+            mFWIOU_all.append(fwiu)
+
+            print('Test: [{0}/{1}]\t'
+                  'Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
+                  'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
+                  'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
+                  'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
+                                                                                    pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+
             valid_annotations[itr2] = cv2.normalize(
                 valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
-
-            pos = 240 + 8
-            plt.subplot(pos)
-            #ret, errorImage = cv2.threshold(cv2.absdiff(crfoutput.astype(np.uint8), valid_annotations[itr2].astype(np.uint8)), 10, 255, cv2.THRESH_BINARY)
-            plt.imshow(errorImage, cmap=plt.get_cmap('gray'))
-            plt.axis('off')
-            plt.title('CRF Error:' + str(np.count_nonzero(errorImage)))
-
-            # np.set_printoptions(threshold=np.inf)
-
-            # plt.show()
 
             np.savetxt(FLAGS.logs_dir +
                        "Image/Crossmatrix" +
@@ -429,18 +310,8 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
                            FLAGS.batch_size +
                            itr2) +
                        ".csv", crossMat, fmt='%4i', delimiter=',')
-            np.savetxt(FLAGS.logs_dir +
-                       "Image/IoUs" +
-                       str(itr1 *
-                           FLAGS.batch_size +
-                           itr2) +
-                       ".csv", IoUs, fmt='%4f', delimiter=',')
-            np.savetxt(FLAGS.logs_dir +
-                       "Image/FWIoUs" +
-                       str(itr1 *
-                           FLAGS.batch_size +
-                           itr2) +
-                       ".csv", FWIoUs, fmt='%4f', delimiter=',')
+
+            # Save input, gt, pred, sum figures for this image
             plt.savefig(FLAGS.logs_dir + "Image/resultSum_" +
                         str(itr1 * FLAGS.batch_size + itr2))
             # ---------------------------------------------
@@ -451,15 +322,12 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
             utils.save_image(pred[itr2].astype(np.uint8),
                              FLAGS.logs_dir + "Image/",
                              name="pred_" + str(itr1 * 2 + itr2))
-            #utils.save_image(crfoutput, FLAGS.logs_dir + "Image/", name="crf_" + str(itr1 * 2 + itr2))
 
             plt.close('all')
             print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
-            # save list of error to file
 
-    with open(FLAGS.logs_dir + 'pred_e.txt', 'w') as file:
-        for error in pred_e:
-            file.write("%i\n" % error)
+    print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
+          .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
 
     np.savetxt(
         FLAGS.logs_dir +
@@ -468,6 +336,24 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
             crossMats,
             axis=0),
         fmt='%4i',
+        delimiter=',')
+    np.savetxt(
+        FLAGS.logs_dir +
+        "PixelAccuracies" +
+        ".csv",
+        np.mean(
+            PA_all,
+            axis=0),
+        fmt='%4f',
+        delimiter=',')
+    np.savetxt(
+        FLAGS.logs_dir +
+        "MeanAccuracies" +
+        ".csv",
+        np.mean(
+            MPA_all,
+            axis=0),
+        fmt='%4f',
         delimiter=',')
     np.savetxt(
         FLAGS.logs_dir +
@@ -487,7 +373,7 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, pred_annotation,
         delimiter=',')
 
     end = time.time()
-    print("Learning time:", end - start, "seconds")
+    print("Testing time:", end - start, "seconds")
 
 
 def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation, image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, DISPLAY_STEP=300):

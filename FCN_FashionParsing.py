@@ -28,9 +28,8 @@ tf.flags.DEFINE_integer(
     "training_epochs",
     "30",
     "number of epochs for training")
-tf.flags.DEFINE_string("logs_dir", "logs/FCN/", "path to logs directory")
+tf.flags.DEFINE_string("logs_dir", "logs/FCN_FP/", "path to logs directory")
 tf.flags.DEFINE_string("data_dir", "E:/Dataset/Dataset10k/", "path to dataset")
-#tf.flags.DEFINE_string("data_dir", "E:/Dataset/MIT_SceneParsing/ADEChallengeData2016/images/", "path to dataset")
 tf.flags.DEFINE_float(
     "learning_rate",
     "1e-4",
@@ -79,9 +78,10 @@ def inference(image, keep_prob):
         # 2.1 VGG
         image_net = fd.vgg_net(weights, processed_image)
         conv_final_layer = image_net["conv5_3"]
-        #
+        # Pooling layer for Conv5 layer
         pool5 = utils.max_pool_2x2(conv_final_layer)
 
+        # FC6 to Conv
         W6 = utils.weight_variable([7, 7, 512, 4096], name="W6")
         b6 = utils.bias_variable([4096], name="b6")
         conv6 = utils.conv2d_basic(pool5, W6, b6)
@@ -90,6 +90,7 @@ def inference(image, keep_prob):
             utils.add_activation_summary(relu6)
         relu_dropout6 = tf.nn.dropout(relu6, keep_prob=keep_prob)
 
+        # FC7 to Conv
         W7 = utils.weight_variable([1, 1, 4096, 4096], name="W7")
         b7 = utils.bias_variable([4096], name="b7")
         conv7 = utils.conv2d_basic(relu_dropout6, W7, b7)
@@ -98,6 +99,7 @@ def inference(image, keep_prob):
             utils.add_activation_summary(relu7)
         relu_dropout7 = tf.nn.dropout(relu7, keep_prob=keep_prob)
 
+        # FC8 to Conv
         W8 = utils.weight_variable([1, 1, 4096, NUM_OF_CLASSESS], name="W8")
         b8 = utils.bias_variable([NUM_OF_CLASSESS], name="b8")
         conv8 = utils.conv2d_basic(relu_dropout7, W8, b8)

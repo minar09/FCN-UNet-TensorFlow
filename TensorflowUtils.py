@@ -50,7 +50,7 @@ def maybe_download_and_extract(
     filename = url_name.split('/')[-1]
     filepath = os.path.join(dir_path, filename)
 
-    # download and etract it if not yet downloaded
+    # download and etxract it if not yet downloaded
     if not os.path.exists(filepath):
         # 1. download from network
         def _progress(count, block_size, total_size):
@@ -168,9 +168,9 @@ def conv2d_transpose_strided(x, W, b, output_shape=None, stride=2):
         output_shape[2] *= 2
         output_shape[3] = W.get_shape().as_list()[2]
     # print output_shape
-    #conv = tf.nn.conv2d_transpose(x, W, output_shape, strides=[1, stride, stride, 1], padding="SAME")
-    conv = tf.nn.atrous_conv2d_transpose(x, _upsample_filters(
-        W, stride), output_shape, rate=stride, padding="SAME")
+    conv = tf.nn.conv2d_transpose(x, W, output_shape, strides=[
+                                  1, stride, stride, 1], padding="SAME")
+    #conv = tf.nn.atrous_conv2d_transpose(x, _upsample_filters(W, stride), output_shape, rate=stride, padding="SAME")
     return tf.nn.bias_add(conv, b)
 
 
