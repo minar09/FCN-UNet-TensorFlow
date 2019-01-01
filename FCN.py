@@ -245,7 +245,7 @@ def main(argv=None):
     if FLAGS.mode == "train":
 
         fd.mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader, train_records, pred_annotation,
-                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, DISPLAY_STEP)
+                      image, annotation, keep_probability, logits, train_op, loss, summary_op, summary_writer, saver, DISPLAY_STEP)
 
     # test-random-validation-data mode
     elif FLAGS.mode == "visualize":

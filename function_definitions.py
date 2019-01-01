@@ -246,131 +246,133 @@ def mode_test(sess, FLAGS, TEST_DIR, validation_dataset_reader, valid_records, p
 
         for itr2 in range(FLAGS.batch_size):
 
-            fig = plt.figure()
-            pos = 240 + 1
-            plt.subplot(pos)
-            plt.imshow(valid_images[itr2].astype(np.uint8))
-            plt.axis('off')
-            plt.title('Original')
+            try:
+                fig = plt.figure()
+                pos = 240 + 1
+                plt.subplot(pos)
+                plt.imshow(valid_images[itr2].astype(np.uint8))
+                plt.axis('off')
+                plt.title('Original')
 
-            pos = 240 + 2
-            plt.subplot(pos)
-            plt.imshow(
-                valid_annotations[itr2].astype(
-                    np.uint8),
-                cmap=plt.get_cmap('nipy_spectral'))
-            plt.axis('off')
-            plt.title('GT')
+                pos = 240 + 2
+                plt.subplot(pos)
+                plt.imshow(
+                    valid_annotations[itr2].astype(
+                        np.uint8),
+                    cmap=plt.get_cmap('nipy_spectral'))
+                plt.axis('off')
+                plt.title('GT')
 
-            pos = 240 + 3
-            plt.subplot(pos)
-            plt.imshow(
-                pred[itr2].astype(
-                    np.uint8),
-                cmap=plt.get_cmap('nipy_spectral'))
-            plt.axis('off')
-            plt.title('Prediction')
+                pos = 240 + 3
+                plt.subplot(pos)
+                plt.imshow(
+                    pred[itr2].astype(
+                        np.uint8),
+                    cmap=plt.get_cmap('nipy_spectral'))
+                plt.axis('off')
+                plt.title('Prediction')
 
-            # Confusion matrix for this image
-            crossMat = EM._calcCrossMat(
-                valid_annotations[itr2].astype(
-                    np.uint8), pred[itr2].astype(
-                    np.uint8), NUM_OF_CLASSESS)
-            crossMats.append(crossMat)
+                # Confusion matrix for this image
+                crossMat = EM._calcCrossMat(
+                    valid_annotations[itr2].astype(
+                        np.uint8), pred[itr2].astype(
+                        np.uint8), NUM_OF_CLASSESS)
+                crossMats.append(crossMat)
 
-            # Eval metrics for this image
-            pa, ma, miu, fwiu = EM._calc_eval_metrics(
-                valid_annotations[itr2].astype(
-                    np.uint8), pred[itr2].astype(
-                    np.uint8), NUM_OF_CLASSESS)
+                # Eval metrics for this image
+                pa, ma, miu, fwiu = EM._calc_eval_metrics(
+                    valid_annotations[itr2].astype(
+                        np.uint8), pred[itr2].astype(
+                        np.uint8), NUM_OF_CLASSESS)
 
-            pixel.update(pa)
-            mean.update(ma)
-            miou.update(miu)
-            fwiou.update(fwiu)
+                pixel.update(pa)
+                mean.update(ma)
+                miou.update(miu)
+                fwiou.update(fwiu)
 
-            PA_all.append(pa)
-            MPA_all.append(ma)
-            mIOU_all.append(miu)
-            mFWIOU_all.append(fwiu)
+                PA_all.append(pa)
+                MPA_all.append(ma)
+                mIOU_all.append(miu)
+                mFWIOU_all.append(fwiu)
 
-            print('Test: [{0}/{1}]\t'
-                  'Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
-                  'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
-                  'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
-                  'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
-                                                                                    pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
+                print('Test: [{0}/{1}]\t'
+                      'Pixel acc {pixel.val:.4f} ({pixel.avg:.4f})\t'
+                      'Mean acc {mean.val:.4f} ({mean.avg:.4f})\t'
+                      'Mean IoU {miou.val:.4f} ({miou.avg:.4f})\t'
+                      'Frequency-weighted IoU {fwiou.val:.4f} ({fwiou.avg:.4f})'.format((itr1 * FLAGS.batch_size + itr2), len(valid_records),
+                                                                                        pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
 
-            valid_annotations[itr2] = cv2.normalize(
-                valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
+                valid_annotations[itr2] = cv2.normalize(
+                    valid_annotations[itr2], None, 0, 255, cv2.NORM_MINMAX)
 
-            np.savetxt(FLAGS.logs_dir +
-                       "Image/Crossmatrix" +
-                       str(itr1 *
-                           FLAGS.batch_size +
-                           itr2) +
-                       ".csv", crossMat, fmt='%4i', delimiter=',')
+                np.savetxt(FLAGS.logs_dir +
+                           "Image/Crossmatrix" +
+                           str(itr1 *
+                               FLAGS.batch_size +
+                               itr2) +
+                           ".csv", crossMat, fmt='%4i', delimiter=',')
 
-            # Save input, gt, pred, sum figures for this image
-            plt.savefig(FLAGS.logs_dir + "Image/resultSum_" +
-                        str(itr1 * FLAGS.batch_size + itr2))
-            # ---------------------------------------------
-            utils.save_image(valid_images[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
-                             name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
-            utils.save_image(valid_annotations[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
-                             name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
-            utils.save_image(pred[itr2].astype(np.uint8),
-                             FLAGS.logs_dir + "Image/",
-                             name="pred_" + str(itr1 * 2 + itr2))
+                # Save input, gt, pred, sum figures for this image
+                plt.savefig(FLAGS.logs_dir + "Image/resultSum_" +
+                            str(itr1 * FLAGS.batch_size + itr2))
+                # ---------------------------------------------
+                utils.save_image(valid_images[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
+                                 name="inp_" + str(itr1 * FLAGS.batch_size + itr2))
+                utils.save_image(valid_annotations[itr2].astype(np.uint8), FLAGS.logs_dir + "Image/",
+                                 name="gt_" + str(itr1 * FLAGS.batch_size + itr2))
+                utils.save_image(pred[itr2].astype(np.uint8),
+                                 FLAGS.logs_dir + "Image/",
+                                 name="pred_" + str(itr1 * 2 + itr2))
 
-            plt.close('all')
-            print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
+                plt.close('all')
+                print("Saved image: %d" % (itr1 * FLAGS.batch_size + itr2))
+
+            except Exception as err:
+                print(err)
 
     print(' * Pixel acc: {pixel.avg:.4f}, Mean acc: {mean.avg:.4f}, Mean IoU: {miou.avg:.4f}, Frequency-weighted IoU: {fwiou.avg:.4f}'
           .format(pixel=pixel, mean=mean, miou=miou, fwiou=fwiou))
 
-    np.savetxt(
-        FLAGS.logs_dir +
-        "Crossmatrix.csv",
-        np.sum(
-            crossMats,
-            axis=0),
-        fmt='%4i',
-        delimiter=',')
-    np.savetxt(
-        FLAGS.logs_dir +
-        "PixelAccuracies" +
-        ".csv",
-        np.mean(
+    try:
+        np.savetxt(
+            FLAGS.logs_dir +
+            "Crossmatrix.csv",
+            np.sum(
+                crossMats,
+                axis=0),
+            fmt='%4i',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "PixelAccuracies" +
+            ".csv",
             PA_all,
-            axis=0),
-        fmt='%4f',
-        delimiter=',')
-    np.savetxt(
-        FLAGS.logs_dir +
-        "MeanAccuracies" +
-        ".csv",
-        np.mean(
+            fmt='%4f',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "MeanAccuracies" +
+            ".csv",
             MPA_all,
-            axis=0),
-        fmt='%4f',
-        delimiter=',')
-    np.savetxt(
-        FLAGS.logs_dir +
-        "mIoUs" +
-        ".csv",
-        np.mean(
+            fmt='%4f',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "mIoUs" +
+            ".csv",
             mIOU_all,
-            axis=0),
-        fmt='%4f',
-        delimiter=',')
-    np.savetxt(
-        FLAGS.logs_dir +
-        "mFWIoUs" +
-        ".csv",
-        mFWIOU_all,
-        fmt='%4f',
-        delimiter=',')
+            fmt='%4f',
+            delimiter=',')
+        np.savetxt(
+            FLAGS.logs_dir +
+            "mFWIoUs" +
+            ".csv",
+            mFWIOU_all,
+            fmt='%4f',
+            delimiter=',')
+
+    except Exception as err:
+        print(err)
 
     end = time.time()
     print("Testing time:", end - start, "seconds")
@@ -442,6 +444,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
             step.append(itr)
             # print("valid", valid, "step", step)
 
+            plt.ylim(0, 1)
             plt.plot(step, valid)
             plt.ylabel("Loss")
             plt.xlabel("Step")
@@ -449,6 +452,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
             plt.savefig(FLAGS.logs_dir + "validation_loss.jpg")
 
             plt.clf()
+            plt.ylim(0, 1)
             plt.plot(step, lo)
             plt.title('Training Loss')
             plt.ylabel("Loss")
@@ -456,7 +460,7 @@ def mode_train(sess, FLAGS, net, train_dataset_reader, validation_dataset_reader
             plt.savefig(FLAGS.logs_dir + "training_loss.jpg")
 
             plt.clf()
-
+            plt.ylim(0, 1)
             plt.plot(step, lo)
             plt.plot(step, valid)
             plt.ylabel("Loss")

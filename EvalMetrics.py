@@ -15,9 +15,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 def _calc_eval_metrics(gtimage, predimage, num_classes):
-    '''
-    sum_i(n_ii) / sum_i(t_i)
-    '''
 
     pixel_accuracy_ = 0
     mean_accuracy = 0

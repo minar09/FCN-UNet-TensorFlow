@@ -20,7 +20,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 """
 
 
-def get_model_data(dir_path, model_url):
+def get_model_data(dir_path, model_url='http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat'):
     # 1. dowload if needed
     maybe_download_and_extract(dir_path, model_url)
     filename = model_url.split("/")[-1]
